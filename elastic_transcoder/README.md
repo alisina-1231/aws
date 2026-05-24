@@ -1,0 +1,1 @@
+On November 13, 2025, AWS will discontinue support for Amazon Elastic Transcoder. After November 13, 2025, you will no longer be able to access the Amazon Elastic Transcoder console or Amazon Elastic Transcoder resources. For more information, see the  migration blog post.

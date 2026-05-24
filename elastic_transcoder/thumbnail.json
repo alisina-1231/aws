@@ -1,0 +1,13 @@
+{
+    "Bucket":"elastic-transcoder-lab-input-bucket-123456789012",
+    "Permissions":[
+        {
+            "GranteeType":"Canonical",
+            "Grantee":"832014379019",
+            "Access":[
+                "FullControl"
+            ]
+        }
+    ],
+    "StorageClass":"ReducedRedundancy"
+}

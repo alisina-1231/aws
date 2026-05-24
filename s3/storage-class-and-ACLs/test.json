@@ -1,0 +1,14 @@
+{
+  "Grants": [
+    {
+      "Grantee": {
+        "Type": "CanonicalUser",
+        "ID": "account_which_you_share_with_canonical_id"
+      },
+      "Permission": "FULL_CONTROL"
+    }
+  ],
+  "Owner": {
+    "ID": "owner_of_the_bucket_canonical_id"
+  }
+}

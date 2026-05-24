@@ -1,0 +1,22 @@
+aws iam create-role \
+--role-name S3AccessRole \
+--assume-role-policy-document file://trust-policy.json
+
+aws iam put-role-policy \
+--role-name S3AccessRole \
+--policy-name S3AccessPolicy \
+--policy-document file://s3-policy.json
+
+
+aws iam create-user --user-name limited-user
+
+aws iam put-user-policy \
+--user-name machine-user \
+--policy-name AssumeS3Role \
+--policy-document file://assume-role-policy.json
+
+aws sts assume-role \
+--role-arn arn:aws:iam::832014379019:role/S3AccessRole \
+--role-session-name s3session
+
+

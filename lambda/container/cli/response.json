@@ -1,0 +1,1 @@
+{"statusCode":200,"headers":{"Content-Type":"application/json"},"multiValueHeaders":null,"body":"{\"input\":{\"age\":26,\"city\":\"Herat\",\"name\":\"sina\"},\"message\":\"Lambda executed successfully\"}"}

@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >
+  CloudFormation template to create:
+  - SNS Topic
+  - Email Subscription
+  - Lambda Function
+  - IAM Role for Lambda
+
+Parameters:
+
+  EmailAddress:
+    Type: String
+    Description: Email address to receive SNS notifications
+
+Resources:
+
+  # SNS Topic
+  MySNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: MySNSTopic
+
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref EmailAddress
+
+  # IAM Role for Lambda
+  MyLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: MyLambdaExecutionRole
+
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+
+        Statement:
+          - Effect: Allow
+
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+
+            Action:
+              - sts:AssumeRole
+
+      Policies:
+
+        - PolicyName: SNSPublishPolicy
+
+          PolicyDocument:
+            Version: '2012-10-17'
+
+            Statement:
+
+              # Allow publish to SNS
+              - Effect: Allow
+
+                Action:
+                  - sns:Publish
+
+                Resource: !Ref MySNSTopic
+
+              # Allow Lambda logging
+              - Effect: Allow
+
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+
+                Resource: "*"
+
+  # Lambda Function
+  MyLambdaFunction:
+    Type: AWS::Lambda::Function
+
+    Properties:
+      FunctionName: MyLambdaFunction
+
+      Runtime: python3.12
+
+      Handler: index.handler
+
+      Timeout: 10
+
+      Role: !GetAtt MyLambdaExecutionRole.Arn
+
+      Environment:
+        Variables:
+          TOPIC_ARN: !Ref MySNSTopic
+
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+
+          sns = boto3.client('sns')
+
+          TOPIC_ARN = os.environ['TOPIC_ARN']
+
+          def handler(event, context):
+
+              message = {
+                  "message": "Hello from Lambda!",
+                  "event": event
+              }
+
+              response = sns.publish(
+                  TopicArn=TOPIC_ARN,
+                  Subject="Lambda SNS Notification",
+                  Message=json.dumps(message, indent=2)
+              )
+
+              return {
+                  "statusCode": 200,
+                  "body": json.dumps({
+                      "message": "SNS message sent successfully",
+                      "message_id": response["MessageId"]
+                  })
+              }
+
+Outputs:
+
+  SNSTopicArn:
+    Description: SNS Topic ARN
+    Value: !Ref MySNSTopic
+
+  LambdaFunctionName:
+    Description: Lambda Function Name
+    Value: !Ref MyLambdaFunction

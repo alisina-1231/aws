@@ -1,0 +1,9 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "AWS CloudFormation Template for SQS FIFO Queue"
+Resources:
+  MyFifoQueue:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      QueueName: "MyFifoQueue.fifo"
+      FifoQueue: true
+      ContentBasedDeduplication: true

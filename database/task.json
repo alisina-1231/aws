@@ -1,0 +1,9 @@
+{
+  "TargetTablePrepMode": "DROP_AND_CREATE",
+  "FullLoadSettings": {
+    "TargetTablePrepMode": "DROP_AND_CREATE"
+  },
+  "Logging": {
+    "EnableLogging": true
+  }
+}

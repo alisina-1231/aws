@@ -1,0 +1,5 @@
+#!/bin/bash
+echo "Creating bucket using cfn"
+
+Stack_Name="cfn-sample-test"
+aws cloudformation deploy --template-file template.yaml --region us-east-2 --stack-name $Stack_Name --no-execute-changeset

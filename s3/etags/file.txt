@@ -1,0 +1,5 @@
+ETag (entity tag) is an identifier for a specific 
+version of an object that represents its content. 
+It is primarily used for integrity checking and
+ conditional requests to optimize performance 
+ and prevent accidental overwrites.

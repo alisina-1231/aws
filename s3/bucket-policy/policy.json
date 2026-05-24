@@ -1,0 +1,20 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowListAndPut",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::832014379019:user/dev1"
+      },
+      "Action": [
+        "s3:ListBucket",
+        "s3:PutObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::bucket-policy-test1231",
+        "arn:aws:s3:::bucket-policy-test1231/*"
+      ]
+    }
+  ]
+}

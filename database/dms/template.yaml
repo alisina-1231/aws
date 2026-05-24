@@ -1,0 +1,160 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: PostgreSQL to MySQL migration using AWS DMS
+
+Parameters:
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  PublicSubnetId:
+    Type: AWS::EC2::Subnet::Id
+
+  PostgresEndpoint:
+    Type: String
+
+  PostgresPort:
+    Type: Number
+    Default: 5432
+
+  PostgresUsername:
+    Type: String
+
+  PostgresPassword:
+    Type: String
+    NoEcho: true
+
+  PostgresDatabase:
+    Type: String
+    Default: postgres
+
+  MysqlEndpoint:
+    Type: String
+
+  MysqlPort:
+    Type: Number
+    Default: 3306
+
+  MysqlUsername:
+    Type: String
+
+  MysqlPassword:
+    Type: String
+    NoEcho: true
+
+  MysqlDatabase:
+    Type: String
+    Default: mysql
+
+Resources:
+
+  # ==========================================
+  # Security Group
+  # ==========================================
+
+  DMSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: DMS Security Group
+      VpcId: !Ref VpcId
+
+  # ==========================================
+  # DMS Subnet Group
+  # ==========================================
+
+  DMSSubnetGroup:
+    Type: AWS::DMS::ReplicationSubnetGroup
+    Properties:
+      ReplicationSubnetGroupDescription: DMS subnet group
+      ReplicationSubnetGroupIdentifier: dms-subnet-group
+      SubnetIds:
+        - !Ref PublicSubnetId
+
+  # ==========================================
+  # DMS Replication Instance
+  # ==========================================
+
+  DMSReplicationInstance:
+    Type: AWS::DMS::ReplicationInstance
+    Properties:
+      ReplicationInstanceIdentifier: dms-test-instance
+      ReplicationInstanceClass: dms.t3.micro
+      AllocatedStorage: 20
+      PubliclyAccessible: true
+      ReplicationSubnetGroupIdentifier: !Ref DMSSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref DMSSecurityGroup
+
+  # ==========================================
+  # PostgreSQL Source Endpoint
+  # ==========================================
+
+  PostgresSourceEndpoint:
+    Type: AWS::DMS::Endpoint
+    Properties:
+      EndpointIdentifier: postgres-source
+      EndpointType: source
+      EngineName: postgres
+      ServerName: !Ref PostgresEndpoint
+      Port: !Ref PostgresPort
+      Username: !Ref PostgresUsername
+      Password: !Ref PostgresPassword
+      DatabaseName: !Ref PostgresDatabase
+
+  # ==========================================
+  # MySQL Target Endpoint
+  # ==========================================
+
+  MysqlTargetEndpoint:
+    Type: AWS::DMS::Endpoint
+    Properties:
+      EndpointIdentifier: mysql-target
+      EndpointType: target
+      EngineName: mysql
+      ServerName: !Ref MysqlEndpoint
+      Port: !Ref MysqlPort
+      Username: !Ref MysqlUsername
+      Password: !Ref MysqlPassword
+      DatabaseName: !Ref MysqlDatabase
+
+  # ==========================================
+  # DMS Replication Task
+  # ==========================================
+
+  DMSReplicationTask:
+    Type: AWS::DMS::ReplicationTask
+    Properties:
+      ReplicationTaskIdentifier: postgres-to-mysql-task
+      MigrationType: full-load
+      ReplicationInstanceArn: !Ref DMSReplicationInstance
+      SourceEndpointArn: !Ref PostgresSourceEndpoint
+      TargetEndpointArn: !Ref MysqlTargetEndpoint
+
+      TableMappings: |
+        {
+          "rules": [
+            {
+              "rule-type": "selection",
+              "rule-id": "1",
+              "rule-name": "1",
+              "object-locator": {
+                "schema-name": "%",
+                "table-name": "%"
+              },
+              "rule-action": "include"
+            }
+          ]
+        }
+
+Outputs:
+
+  ReplicationInstanceArn:
+    Value: !Ref DMSReplicationInstance
+
+  SourceEndpointArn:
+    Value: !Ref PostgresSourceEndpoint
+
+  TargetEndpointArn:
+    Value: !Ref MysqlTargetEndpoint
+
+  ReplicationTaskArn:
+    Value: !Ref DMSReplicationTask

@@ -1,0 +1,7 @@
+#!/bin/bash
+# This script recive message from the SQS queue defined in the CloudFormation template.
+# Set the queue URL (replace with your actual queue URL)
+QUEUE_URL="https://sqs.us-east-1.amazonaws.com/832014379019/MyStandardQueue"
+# Receive messages from the SQS queue using AWS CLI
+aws sqs receive-message --queue-url "$QUEUE_URL" --max-number-of-messages 1 --wait-time-seconds 10
+echo "Message received from SQS queue: $QUEUE_URL"

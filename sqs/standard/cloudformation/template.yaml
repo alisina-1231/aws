@@ -1,0 +1,8 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "AWS CloudFormation Template for SQS Standard Queue"
+Resources:
+  MyStandardQueue:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      QueueName: "MyStandardQueue"
+      

@@ -1,0 +1,24 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Archives
+*.zip
+*.tar.gz
+*.tar.xz
+*.7z
+
+# Logs
+*.log
+
+# Secrets
+*.pem
+.env

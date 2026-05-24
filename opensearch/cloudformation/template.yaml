@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: OpenSearch Lab Secure Version
+
+Resources:
+
+  OpenSearchDomain:
+    Type: AWS::OpenSearchService::Domain
+    Properties:
+      DomainName: my-opensearch-lab
+
+      EngineVersion: OpenSearch_2.11
+
+      ClusterConfig:
+        InstanceType: t3.small.search
+        InstanceCount: 1
+
+      EBSOptions:
+        EBSEnabled: true
+        VolumeType: gp3
+        VolumeSize: 10
+
+      EncryptionAtRestOptions:
+        Enabled: true
+
+      NodeToNodeEncryptionOptions:
+        Enabled: true
+
+      DomainEndpointOptions:
+        EnforceHTTPS: true
+
+      # 🔥 REQUIRED FIX
+      AdvancedSecurityOptions:
+        Enabled: true
+        InternalUserDatabaseEnabled: true
+        MasterUserOptions:
+          MasterUserName: admin
+          MasterUserPassword: "StrongPassword123!"
+
+      AccessPolicies:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action: es:*
+            Resource: !Sub arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/my-opensearch-lab/*
+
+Outputs:
+  Endpoint:
+    Value: !GetAtt OpenSearchDomain.DomainEndpoint
+
+  DashboardURL:
+    Value: !Sub "https://${OpenSearchDomain.DomainEndpoint}/_dashboards/"

@@ -1,0 +1,115 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS DataSync S3 to S3 Lab
+
+Resources:
+
+# ======================================
+# Source Bucket
+# ======================================
+
+  SourceBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "datasync-source-${AWS::AccountId}"
+
+# ======================================
+# Destination Bucket
+# ======================================
+
+  DestinationBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "datasync-destination-${AWS::AccountId}"
+
+# ======================================
+# IAM Role for DataSync
+# ======================================
+
+  DataSyncRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: DataSyncS3Role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - datasync.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+      Policies:
+        - PolicyName: DataSyncS3Policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                  - s3:ListBucketMultipartUploads
+                Resource:
+                  - !GetAtt SourceBucket.Arn
+                  - !GetAtt DestinationBucket.Arn
+
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:AbortMultipartUpload
+                  - s3:DeleteObject
+                  - s3:ListMultipartUploadParts
+                Resource:
+                  - !Sub "${SourceBucket.Arn}/*"
+                  - !Sub "${DestinationBucket.Arn}/*"
+
+# ======================================
+# DataSync Source Location
+# ======================================
+
+  SourceLocation:
+    Type: AWS::DataSync::LocationS3
+    Properties:
+      S3BucketArn: !GetAtt SourceBucket.Arn
+      S3Config:
+        BucketAccessRoleArn: !GetAtt DataSyncRole.Arn
+
+# ======================================
+# DataSync Destination Location
+# ======================================
+
+  DestinationLocation:
+    Type: AWS::DataSync::LocationS3
+    Properties:
+      S3BucketArn: !GetAtt DestinationBucket.Arn
+      S3Config:
+        BucketAccessRoleArn: !GetAtt DataSyncRole.Arn
+
+# ======================================
+# DataSync Task
+# ======================================
+
+  DataSyncTask:
+    Type: AWS::DataSync::Task
+    Properties:
+      Name: S3ToS3Task
+      SourceLocationArn: !Ref SourceLocation
+      DestinationLocationArn: !Ref DestinationLocation
+
+      Options:
+        VerifyMode: ONLY_FILES_TRANSFERRED
+        TransferMode: CHANGED
+        PreserveDeletedFiles: PRESERVE
+
+Outputs:
+
+  SourceBucketName:
+    Value: !Ref SourceBucket
+
+  DestinationBucketName:
+    Value: !Ref DestinationBucket
+
+  DataSyncTaskArn:
+    Value: !Ref DataSyncTask

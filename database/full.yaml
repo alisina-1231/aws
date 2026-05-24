@@ -1,0 +1,259 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Full Lab - Public PostgreSQL + MySQL + AWS DMS
+
+Parameters:
+
+
+  DBPassword:
+    Type: String
+    NoEcho: true
+
+Resources:
+
+# ==========================================
+# VPC
+# ==========================================
+
+  LabVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.10.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+
+# ==========================================
+# Internet Gateway
+# ==========================================
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref LabVPC
+      InternetGatewayId: !Ref InternetGateway
+
+# ==========================================
+# Public Subnet 1
+# ==========================================
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LabVPC
+      CidrBlock: 10.10.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+
+# ==========================================
+# Public Subnet 2
+# ==========================================
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LabVPC
+      CidrBlock: 10.10.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+
+# ==========================================
+# Route Table
+# ==========================================
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref LabVPC
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+
+  PublicSubnet2RouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet2
+
+# ==========================================
+# Security Group
+# ==========================================
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Public database access
+      VpcId: !Ref LabVPC
+      SecurityGroupIngress:
+
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 0.0.0.0/0
+
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 0.0.0.0/0
+
+# ==========================================
+# DB Subnet Group
+# ==========================================
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Public DB subnet group
+      SubnetIds:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+
+# ==========================================
+# PostgreSQL RDS
+# ==========================================
+
+  PostgreSQLDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: test-postgres-instance
+      DBInstanceClass: db.t3.micro
+      Engine: postgres
+      AllocatedStorage: 20
+      MasterUsername: postgres
+      MasterUserPassword: !Ref DBPassword
+      PubliclyAccessible: true
+      BackupRetentionPeriod: 0
+      VPCSecurityGroups:
+        - !GetAtt DatabaseSecurityGroup.GroupId
+      DBSubnetGroupName: !Ref DBSubnetGroup
+
+# ==========================================
+# MySQL RDS
+# ==========================================
+
+  MySQLDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: test-mysql-instance
+      DBInstanceClass: db.t3.micro
+      Engine: mysql
+      AllocatedStorage: 20
+      MasterUsername: admin
+      MasterUserPassword: !Ref DBPassword
+      PubliclyAccessible: true
+      BackupRetentionPeriod: 0
+      VPCSecurityGroups:
+        - !GetAtt DatabaseSecurityGroup.GroupId
+      DBSubnetGroupName: !Ref DBSubnetGroup
+
+# ==========================================
+# DMS Subnet Group
+# ==========================================
+
+  DMSSubnetGroup:
+    Type: AWS::DMS::ReplicationSubnetGroup
+    Properties:
+      ReplicationSubnetGroupIdentifier: dms-subnet-group
+      ReplicationSubnetGroupDescription: DMS subnet group
+      SubnetIds:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+
+# ==========================================
+# DMS Replication Instance
+# ==========================================
+
+  DMSReplicationInstance:
+    Type: AWS::DMS::ReplicationInstance
+    Properties:
+      ReplicationInstanceIdentifier: dms-instance
+      ReplicationInstanceClass: dms.t3.medium
+      AllocatedStorage: 20
+      PubliclyAccessible: true
+      ReplicationSubnetGroupIdentifier: !Ref DMSSubnetGroup
+      VpcSecurityGroupIds:
+        - !GetAtt DatabaseSecurityGroup.GroupId
+
+# ==========================================
+# PostgreSQL Source Endpoint
+# ==========================================
+
+  PostgresSourceEndpoint:
+    Type: AWS::DMS::Endpoint
+    Properties:
+      EndpointIdentifier: postgres-source
+      EndpointType: source
+      EngineName: postgres
+      ServerName: !GetAtt PostgreSQLDB.Endpoint.Address
+      Port: 5432
+      Username: postgres
+      Password: !Ref DBPassword
+      DatabaseName: postgres
+
+# ==========================================
+# MySQL Target Endpoint
+# ==========================================
+
+  MySQLTargetEndpoint:
+    Type: AWS::DMS::Endpoint
+    Properties:
+      EndpointIdentifier: mysql-target
+      EndpointType: target
+      EngineName: mysql
+      ServerName: !GetAtt MySQLDB.Endpoint.Address
+      Port: 3306
+      Username: admin
+      Password: !Ref DBPassword
+      DatabaseName: mysql
+
+# ==========================================
+# DMS Replication Task
+# ==========================================
+
+  DMSReplicationTask:
+    Type: AWS::DMS::ReplicationTask
+    Properties:
+      ReplicationTaskIdentifier: postgres-to-mysql-task
+      MigrationType: full-load
+      ReplicationInstanceArn: !Ref DMSReplicationInstance
+      SourceEndpointArn: !Ref PostgresSourceEndpoint
+      TargetEndpointArn: !Ref MySQLTargetEndpoint
+
+      TableMappings: |
+        {
+          "rules": [
+            {
+              "rule-type": "selection",
+              "rule-id": "1",
+              "rule-name": "1",
+              "object-locator": {
+                "schema-name": "%",
+                "table-name": "%"
+              },
+              "rule-action": "include"
+            }
+          ]
+        }
+
+Outputs:
+
+  PostgreSQLEndpoint:
+    Value: !GetAtt PostgreSQLDB.Endpoint.Address
+
+  MySQLEndpoint:
+    Value: !GetAtt MySQLDB.Endpoint.Address
+
+  DMSReplicationInstanceArn:
+    Value: !Ref DMSReplicationInstance

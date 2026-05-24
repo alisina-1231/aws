@@ -1,0 +1,9 @@
+#!/bin/bash
+# This script sends a message to the SQS queue defined in the CloudFormation template.
+# Set the queue URL (replace with your actual queue URL)
+QUEUE_URL="https://sqs.us-east-1.amazonaws.com/832014379019/MyStandardQueue"
+# Set the message body
+MESSAGE_BODY="Hello, this is a test message from the send script!"
+# Send the message to the SQS queue using AWS CLI
+aws sqs send-message --queue-url "$QUEUE_URL" --message-body "$MESSAGE_BODY"
+echo "Message sent to SQS queue: $QUEUE_URL"

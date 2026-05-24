@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: SNS triggers Lambda and logs to CloudWatch
+
+Resources:
+
+  #################################
+  # SNS Topic
+  #################################
+
+  MySNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: my-sns-topic
+
+  #################################
+  # IAM Role for Lambda
+  #################################
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: sns-lambda-execution-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  #################################
+  # Lambda Function
+  #################################
+
+  MyLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: my-sns-lambda
+      Runtime: python3.12
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+
+      Code:
+        ZipFile: |
+          import json
+
+          def lambda_handler(event, context):
+
+              print("=== EVENT RECEIVED ===")
+              print(json.dumps(event, indent=2))
+
+              for record in event['Records']:
+                  message = record['Sns']['Message']
+                  print(f"SNS Message: {message}")
+
+              return {
+                  'statusCode': 200,
+                  'body': 'Message processed successfully'
+              }
+
+  #################################
+  # SNS Subscription
+  #################################
+
+  LambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref MySNSTopic
+      Protocol: lambda
+      Endpoint: !GetAtt MyLambdaFunction.Arn
+
+  #################################
+  # Permission for SNS to invoke Lambda
+  #################################
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref MyLambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref MySNSTopic
+
+Outputs:
+
+  TopicArn:
+    Description: SNS Topic ARN
+    Value: !Ref MySNSTopic
+
+  LambdaName:
+    Description: Lambda Function Name
+    Value: !Ref MyLambdaFunction

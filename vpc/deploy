@@ -1,0 +1,107 @@
+#!/bin/bash
+
+echo "Step 1: Create VPC"
+
+vpcid=$(aws ec2 create-vpc \
+ --cidr-block 192.168.0.0/16 \
+ --output json | jq -r '.Vpc.VpcId')
+
+echo "VPC ID: $vpcid"
+
+echo "Step 2: Create Subnet"
+
+subnetid=$(aws ec2 create-subnet \
+ --vpc-id $vpcid \
+ --cidr-block 192.168.1.0/24 \
+ --availability-zone us-east-1a \
+ --output json | jq -r '.Subnet.SubnetId')
+
+echo "Modify Subnet to Map Public IP on Launch"
+
+aws ec2 modify-subnet-attribute \
+ --subnet-id $subnetid \
+ --map-public-ip-on-launch
+
+echo "Subnet ID: $subnetid"
+
+echo "Step 3: Create Internet Gateway"
+
+igwid=$(aws ec2 create-internet-gateway \
+ --output json | jq -r '.InternetGateway.InternetGatewayId')
+
+echo "Internet Gateway ID: $igwid"
+
+echo "Step 4: Attach Internet Gateway to VPC"
+
+aws ec2 attach-internet-gateway \
+ --vpc-id $vpcid \
+ --internet-gateway-id $igwid
+
+echo "Step 5: Create Route Table"
+
+rtid=$(aws ec2 create-route-table \
+ --vpc-id $vpcid \
+ --output json | jq -r '.RouteTable.RouteTableId')
+
+echo "Route Table ID: $rtid"
+
+echo "Step 6: Create Route to Internet Gateway"
+
+aws ec2 create-route \
+ --route-table-id $rtid \
+ --destination-cidr-block 0.0.0.0/0 \
+ --gateway-id $igwid
+
+echo "Step 7: Associate Route Table with Subnet"
+
+aws ec2 associate-route-table \
+ --route-table-id $rtid \
+ --subnet-id $subnetid
+
+ echo "Step 8: Create Security Group"
+sgid=$(aws ec2 create-security-group \
+ --group-name my-security-group \
+ --description "My security group" \
+ --vpc-id $vpcid \
+ --output json | jq -r '.GroupId')
+
+ echo "Step 9: Authorize Inbound Traffic to Security Group"
+aws ec2 authorize-security-group-ingress \
+    --group-id $sgid \
+    --protocol tcp \
+    --port 22 \
+    --cidr 0.0.0.0/0
+
+echo "Create Key Pair"
+keypair="my-key-pair"
+aws ec2 create-key-pair \
+    --key-name $keypair \
+    --query 'KeyMaterial' \
+    --output text > $keypair.pem
+chmod 400 $keypair.pem
+
+echo "Step 10: Create EC2 Instance"
+instanceid=$(aws ec2 run-instances \
+ --image-id ami-0d77bccb32adafa57 \
+ --count 1 \
+ --region us-east-1 \
+ --instance-type t3.micro \
+ --key-name $keypair \
+ --security-group-ids $sgid \
+    --subnet-id $subnetid \
+    --output json | jq -r '.Instances[0].InstanceId')
+
+echo "Step 11: Wait for EC2 Instance to be Running"
+aws ec2 wait instance-running \
+ --instance-ids $instanceid 
+echo "EC2 Instance is running"
+
+echo "Step 12: Get Public IP Address of EC2 Instance"
+publicip=$(aws ec2 describe-instances \
+    --instance-ids $instanceid \
+    --output json | jq -r '.Reservations[0].Instances[0].PublicIpAddress')
+echo "Public IP Address: $publicip"
+
+echo "Step 13: Connect to EC2 Instance via SSH"
+ssh -i $keypair.pem ubuntu@$publicip
+
